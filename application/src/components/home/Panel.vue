@@ -76,9 +76,9 @@
                                             </v-icon>
                                         </template>
                                         <template v-slot:no-data>
-                                            <v-btn color="primary" @click="initialize">
-                                                Reiniciar
-                                            </v-btn>
+                                            <text name="titulo">
+                                                No hay datos para mostrar
+                                            </text>
                                         </template>
                                     </v-data-table>
                                 </template>
@@ -120,7 +120,7 @@ export default {
         ],
         desserts: [],
         books: [],
-        id:0,
+        id: 0,
         editedIndex: -1,
         editedItem: {
             id: '',
@@ -130,6 +130,13 @@ export default {
             id: '',
             name: '',
         },
+        petitions: [],
+        object: {},
+        transactional: {},
+        url: "",
+        method: "",
+        obj: {},
+        storedpetitions: [],
     }),
 
     computed: {
@@ -150,19 +157,13 @@ export default {
     created() {
         this.initialize()
         this.search()
+        this.attempt()
     },
 
     methods: {
         initialize() {
-            this.desserts = [
-                {
-                    name: 'Papas',
-                    calories: 159,
-                    fat: 6.0,
-                    carbs: 24,
-                    protein: 4.0,
-                },
-            ]
+            this.petitions = this.petitions.concat(JSON.parse(localStorage.getItem("petitions")));
+            this.print()
         },
         search() {
             fetch('http://localhost:8080/api/books', {
@@ -178,19 +179,23 @@ export default {
         },
 
         deleteItem(item) {
-            this.editedIndex = this.desserts.indexOf(item)
+            this.editedIndex = this.books.indexOf(item)
             this.editedItem = Object.assign({}, item)
             this.dialogDelete = true
         },
 
         deleteItemConfirm() {
             this.desserts.splice(this.editedIndex, 1)
-            fetch(`http://localhost:8080/api/books/${this.editedItem.id}`, {
+            this.url = `http://localhost:8080/api/books/${this.editedItem.id}`;
+            this.method = 'DELETE';
+            this.object = this.editItem;
+            fetch(this.url, {
                 credentials: 'same-origin',
-                method: 'DELETE'
-            })
+                method: this.method
+            }).catch(() => {
+                this.buildData();
+            });
             this.closeDelete()
-            location.reload();
         },
 
         close() {
@@ -211,27 +216,88 @@ export default {
 
         save() {
             if (this.editedIndex > -1) {
-                Object.assign(this.desserts[this.editedIndex], this.editedItem)
-                fetch(`http://localhost:8080/api/books/${this.editedItem.id}`, {
-                    method: 'PUT',
-                    body: JSON.stringify(this.editedItem), 
+                this.url = `http://localhost:8080/api/books/${this.editedItem.id}`;
+                this.method = 'PUT';
+                this.object = this.editedItem;
+                fetch(this.url, {
+                    method: this.method,
+                    body: JSON.stringify(this.object),
                     headers: {
                         'Content-Type': 'application/json'
                     }
-                }).then(res => res.json());
+                }).catch(() => {
+                    this.buildData();
+                });
             } else {
-                fetch("http://localhost:8080/api/books/addBook", {
-                    method: 'POST',
-                    body: JSON.stringify(this.editedItem), 
+                this.url = "http://localhost:8080/api/books/addBook";
+                this.method = 'POST';
+                this.object = this.editedItem;
+                fetch(this.url, {
+                    method: this.method,
+                    body: JSON.stringify(this.object),
                     headers: {
                         'Content-Type': 'application/json'
                     }
-                }).then(res => res.json());
+                }).catch(() => {
+                    this.buildData();
+                });
             }
             this.close()
-            location.reload();
-
         },
+        funa() {
+            this.petitions = []
+            this.petitions = this.petitions.concat(JSON.parse(localStorage.getItem("petitions")));
+            this.petitions.push(this.obj);
+            localStorage.setItem("petitions", JSON.stringify(this.petitions));
+            this.storedpetitions = JSON.parse(localStorage.getItem("petitions"));
+            localStorage.petitions = JSON.stringify(this.petitions);
+            this.storedpetitions = JSON.parse(localStorage.petitions);
+            this.petitions = []
+            console.log(this.storedpetitions);
+        },
+        print() {
+            console.log(localStorage.getItem("petitions"))
+        },
+        buildData() {
+            this.obj.method = this.method;
+            this.obj.url = this.url;
+            this.obj.object = this.object;
+            this.funa(this.obj);
+            console.log("exito")
+        },
+        clean() {
+            localStorage.removeItem("petitions");
+            this.petitions = []
+            console.log("borrado")
+        },
+        attempt() {
+            if (this.petitions.length != 1) {
+                console.log("att")
+                try {
+                    this.petitions = []
+                    this.petitions = this.petitions.concat(JSON.parse(localStorage.getItem("petitions")));
+                    for (let index = 1; index < this.petitions.length; index++) {
+                        fetch(this.petitions[index].url, {
+                            method: this.petitions[index].method,
+                            body: JSON.stringify(this.petitions[index].object),
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        }).then(data => {
+                            console.log(data);
+                            this.petitions.splice(index, 1);
+                            //this.petitions = this.petitions.filter(objeto => objeto.url !== this.petitions[index].url && objeto.method !== this.petitions[index].method && objeto.object !== this.petitions[index].object);
+                        });
+                    }
+                    this.clean();
+                    localStorage.setItem("petitions", JSON.stringify(this.petitions));
+                    this.print();
+                } catch (error) {
+                    console.log(error)
+                }
+            }
+        },
+
     },
 
 
